@@ -1,0 +1,27 @@
+<?xml version="1.0" ?>
+<PACKETTRACER5>
+  <VERSION>8.2.2.0400</VERSION>
+  <PIXMAPBANK>
+    <IMAGE/>
+  </PIXMAPBANK>
+  <MOVIEBANK/>
+  <NETWORK>
+    <DEVICES>
+      <DEVICE name="PC1" type="pc" power="on">
+        <COORDINATES x="100" y="200"/>
+        <INTERFACE name="eth0" ip="192.168.1.2" bandwidth="1000"/>
+      </DEVICE>
+      <DEVICE name="SW1" type="switch">
+        <COORDINATES x="150" y="250"/>
+        <INTERFACE name="port1" bandwidth="1000"/>
+      </DEVICE>
+    </DEVICES>
+    <LINKS>
+      <LINK from="PC1" from_port="eth0" to="SW1" to_port="port1" speed="100"/>
+    </LINKS>
+    <SHAPETESTS/>
+    <DESCRIPTION/>
+  </NETWORK>
+  <SCENARIOSET/>
+  <OPTIONS/>
+</PACKETTRACER5>

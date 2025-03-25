@@ -1,0 +1,297 @@
+Created by PLY version 3.11 (http://www.dabeaz.com/ply)
+
+Grammar
+
+Rule 0     S' -> program
+Rule 1     program -> statements
+Rule 2     statements -> statement statements
+Rule 3     statements -> statement
+Rule 4     statement -> DEVICE IDENTIFIER IDENTIFIER LBRACE attributes RBRACE
+Rule 5     statement -> CONNECT connection_list
+Rule 6     attributes -> attribute attributes
+Rule 7     attributes -> attribute
+Rule 8     attribute -> IDENTIFIER COLON value
+Rule 9     value -> STRING
+Rule 10    value -> NUMBER
+Rule 11    value -> IDENTIFIER
+Rule 12    connection_list -> connection COMMA connection_list
+Rule 13    connection_list -> connection
+Rule 14    connection -> IDENTIFIER DOT IDENTIFIER
+
+Terminals, with rules where they appear
+
+COLON                : 8
+COMMA                : 12
+CONNECT              : 5
+DEVICE               : 4
+DOT                  : 14
+IDENTIFIER           : 4 4 8 11 14 14
+LBRACE               : 4
+NUMBER               : 10
+RBRACE               : 4
+STRING               : 9
+error                : 
+
+Nonterminals, with rules where they appear
+
+attribute            : 6 7
+attributes           : 4 6
+connection           : 12 13
+connection_list      : 5 12
+program              : 0
+statement            : 2 3
+statements           : 1 2
+value                : 8
+
+Parsing method: LALR
+
+state 0
+
+    (0) S' -> . program
+    (1) program -> . statements
+    (2) statements -> . statement statements
+    (3) statements -> . statement
+    (4) statement -> . DEVICE IDENTIFIER IDENTIFIER LBRACE attributes RBRACE
+    (5) statement -> . CONNECT connection_list
+
+    DEVICE          shift and go to state 4
+    CONNECT         shift and go to state 5
+
+    program                        shift and go to state 1
+    statements                     shift and go to state 2
+    statement                      shift and go to state 3
+
+state 1
+
+    (0) S' -> program .
+
+
+
+state 2
+
+    (1) program -> statements .
+
+    $end            reduce using rule 1 (program -> statements .)
+
+
+state 3
+
+    (2) statements -> statement . statements
+    (3) statements -> statement .
+    (2) statements -> . statement statements
+    (3) statements -> . statement
+    (4) statement -> . DEVICE IDENTIFIER IDENTIFIER LBRACE attributes RBRACE
+    (5) statement -> . CONNECT connection_list
+
+    $end            reduce using rule 3 (statements -> statement .)
+    DEVICE          shift and go to state 4
+    CONNECT         shift and go to state 5
+
+    statement                      shift and go to state 3
+    statements                     shift and go to state 6
+
+state 4
+
+    (4) statement -> DEVICE . IDENTIFIER IDENTIFIER LBRACE attributes RBRACE
+
+    IDENTIFIER      shift and go to state 7
+
+
+state 5
+
+    (5) statement -> CONNECT . connection_list
+    (12) connection_list -> . connection COMMA connection_list
+    (13) connection_list -> . connection
+    (14) connection -> . IDENTIFIER DOT IDENTIFIER
+
+    IDENTIFIER      shift and go to state 10
+
+    connection_list                shift and go to state 8
+    connection                     shift and go to state 9
+
+state 6
+
+    (2) statements -> statement statements .
+
+    $end            reduce using rule 2 (statements -> statement statements .)
+
+
+state 7
+
+    (4) statement -> DEVICE IDENTIFIER . IDENTIFIER LBRACE attributes RBRACE
+
+    IDENTIFIER      shift and go to state 11
+
+
+state 8
+
+    (5) statement -> CONNECT connection_list .
+
+    DEVICE          reduce using rule 5 (statement -> CONNECT connection_list .)
+    CONNECT         reduce using rule 5 (statement -> CONNECT connection_list .)
+    $end            reduce using rule 5 (statement -> CONNECT connection_list .)
+
+
+state 9
+
+    (12) connection_list -> connection . COMMA connection_list
+    (13) connection_list -> connection .
+
+    COMMA           shift and go to state 12
+    DEVICE          reduce using rule 13 (connection_list -> connection .)
+    CONNECT         reduce using rule 13 (connection_list -> connection .)
+    $end            reduce using rule 13 (connection_list -> connection .)
+
+
+state 10
+
+    (14) connection -> IDENTIFIER . DOT IDENTIFIER
+
+    DOT             shift and go to state 13
+
+
+state 11
+
+    (4) statement -> DEVICE IDENTIFIER IDENTIFIER . LBRACE attributes RBRACE
+
+    LBRACE          shift and go to state 14
+
+
+state 12
+
+    (12) connection_list -> connection COMMA . connection_list
+    (12) connection_list -> . connection COMMA connection_list
+    (13) connection_list -> . connection
+    (14) connection -> . IDENTIFIER DOT IDENTIFIER
+
+    IDENTIFIER      shift and go to state 10
+
+    connection                     shift and go to state 9
+    connection_list                shift and go to state 15
+
+state 13
+
+    (14) connection -> IDENTIFIER DOT . IDENTIFIER
+
+    IDENTIFIER      shift and go to state 16
+
+
+state 14
+
+    (4) statement -> DEVICE IDENTIFIER IDENTIFIER LBRACE . attributes RBRACE
+    (6) attributes -> . attribute attributes
+    (7) attributes -> . attribute
+    (8) attribute -> . IDENTIFIER COLON value
+
+    IDENTIFIER      shift and go to state 17
+
+    attributes                     shift and go to state 18
+    attribute                      shift and go to state 19
+
+state 15
+
+    (12) connection_list -> connection COMMA connection_list .
+
+    DEVICE          reduce using rule 12 (connection_list -> connection COMMA connection_list .)
+    CONNECT         reduce using rule 12 (connection_list -> connection COMMA connection_list .)
+    $end            reduce using rule 12 (connection_list -> connection COMMA connection_list .)
+
+
+state 16
+
+    (14) connection -> IDENTIFIER DOT IDENTIFIER .
+
+    COMMA           reduce using rule 14 (connection -> IDENTIFIER DOT IDENTIFIER .)
+    DEVICE          reduce using rule 14 (connection -> IDENTIFIER DOT IDENTIFIER .)
+    CONNECT         reduce using rule 14 (connection -> IDENTIFIER DOT IDENTIFIER .)
+    $end            reduce using rule 14 (connection -> IDENTIFIER DOT IDENTIFIER .)
+
+
+state 17
+
+    (8) attribute -> IDENTIFIER . COLON value
+
+    COLON           shift and go to state 20
+
+
+state 18
+
+    (4) statement -> DEVICE IDENTIFIER IDENTIFIER LBRACE attributes . RBRACE
+
+    RBRACE          shift and go to state 21
+
+
+state 19
+
+    (6) attributes -> attribute . attributes
+    (7) attributes -> attribute .
+    (6) attributes -> . attribute attributes
+    (7) attributes -> . attribute
+    (8) attribute -> . IDENTIFIER COLON value
+
+    RBRACE          reduce using rule 7 (attributes -> attribute .)
+    IDENTIFIER      shift and go to state 17
+
+    attribute                      shift and go to state 19
+    attributes                     shift and go to state 22
+
+state 20
+
+    (8) attribute -> IDENTIFIER COLON . value
+    (9) value -> . STRING
+    (10) value -> . NUMBER
+    (11) value -> . IDENTIFIER
+
+    STRING          shift and go to state 25
+    NUMBER          shift and go to state 26
+    IDENTIFIER      shift and go to state 23
+
+    value                          shift and go to state 24
+
+state 21
+
+    (4) statement -> DEVICE IDENTIFIER IDENTIFIER LBRACE attributes RBRACE .
+
+    DEVICE          reduce using rule 4 (statement -> DEVICE IDENTIFIER IDENTIFIER LBRACE attributes RBRACE .)
+    CONNECT         reduce using rule 4 (statement -> DEVICE IDENTIFIER IDENTIFIER LBRACE attributes RBRACE .)
+    $end            reduce using rule 4 (statement -> DEVICE IDENTIFIER IDENTIFIER LBRACE attributes RBRACE .)
+
+
+state 22
+
+    (6) attributes -> attribute attributes .
+
+    RBRACE          reduce using rule 6 (attributes -> attribute attributes .)
+
+
+state 23
+
+    (11) value -> IDENTIFIER .
+
+    IDENTIFIER      reduce using rule 11 (value -> IDENTIFIER .)
+    RBRACE          reduce using rule 11 (value -> IDENTIFIER .)
+
+
+state 24
+
+    (8) attribute -> IDENTIFIER COLON value .
+
+    IDENTIFIER      reduce using rule 8 (attribute -> IDENTIFIER COLON value .)
+    RBRACE          reduce using rule 8 (attribute -> IDENTIFIER COLON value .)
+
+
+state 25
+
+    (9) value -> STRING .
+
+    IDENTIFIER      reduce using rule 9 (value -> STRING .)
+    RBRACE          reduce using rule 9 (value -> STRING .)
+
+
+state 26
+
+    (10) value -> NUMBER .
+
+    IDENTIFIER      reduce using rule 10 (value -> NUMBER .)
+    RBRACE          reduce using rule 10 (value -> NUMBER .)
+
