@@ -1,27 +1,43 @@
-#TOKENS
+from pyparsing import Group, ZeroOrMore
+from lex import W, IPV4_ADDRESS, NUMBER, LBRACE, RBRACE, Keyword, Literal, Suppress
 
-
-TT_INT = 'TT_INT'
-TT_FLOAT = 'TT_FLOAT'
-TT_STRING = 'TT_STRING'
-TT_BOOL = 'TT_BOOL'
-TT_LIST = 'TT_LIST'
-TT_DICT = 'TT_DICT'
-TT_SET = 'TT_SET'
-TT_PLUS = 'PLUS'
-TT_MINUS = 'MINUS'
-TT_TIMES = 'TIMES'
-TT_DIVIDE = 'DIVIDE'
-TT_MODULO = 'MODULO'
-TT_EQUALS = ''
-TT_NOT_EQUALS = ''
-TT_LESS_THAN = ''
-
-class Token:
-    def __init__(self,type_ , value):
-        self.type_ = type_
-        self.value = value
-
-    def __repr__(self):
-        if self.value: return f'{self.type}: {self.value}'
-        return f'{self.type}'
+# DSL token definitions
+Coordinates = Group(Keyword("coordinates") + NUMBER("x") + NUMBER("y"))
+Power = Group(Keyword("power") + (Keyword("on") | Keyword("off"))("state"))
+Interface = Group(
+    Keyword("interface") + W("name") +
+    LBRACE +
+    ZeroOrMore(
+        Group(Keyword("bandwidth") + NUMBER("bw"))
+        | Group(Keyword("ip") + IPV4_ADDRESS("ip"))
+    ) +
+    RBRACE
+)
+DeviceBody = ZeroOrMore(Coordinates | Power | Interface)
+Device = Group(
+    Keyword("device") + W("name") +
+    (Keyword("pc") | Keyword("laptop") | Keyword("router") |
+     Keyword("switch") | Keyword("firewall") | W)("type") +
+    LBRACE +
+    DeviceBody +
+    RBRACE
+)
+Link = Group(
+    Keyword("link") +
+    Group(
+        W("device1") + Literal(".") + W("iface1") +
+        Literal("->") +
+        W("device2") + Literal(".") + W("iface2")
+    )("link") +
+    LBRACE +
+    ZeroOrMore(
+        Group(W("property") + W("value"))
+    ) +
+    RBRACE
+)
+Network = Group(
+    Keyword("network") + W("name") +
+    LBRACE +
+    ZeroOrMore(Device | Link) +
+    RBRACE
+)
