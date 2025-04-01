@@ -1,0 +1,9 @@
+graph G {
+	node [style=rounded,shape=record];
+	layout=twopi;
+	graph [pad="1", ranksep="1.5"];
+
+	"PC0"--"Switch0" [taillabel=""; headlabel=""];
+	"PC1"--"Switch0" [taillabel=""; headlabel=""];
+	"Laptop0"--"Switch0" [taillabel=""; headlabel=""];
+}

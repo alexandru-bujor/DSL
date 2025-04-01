@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>PKA to DSL Converter</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 2rem;
+      background: #f5f5f5;
+    }
+    h1 {
+      color: #444;
+    }
+    input[type="file"] {
+      margin-bottom: 1rem;
+    }
+    button {
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+    }
+    pre {
+      background: #1e1e1e;
+      color: #dcdcdc;
+      padding: 1rem;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      border-radius: 5px;
+      margin-top: 2rem;
+    }
+    .error {
+      color: red;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>PKA → DSL Online Converter</h1>
+
+  <form id="upload-form">
+    <input type="file" id="file" name="file" accept=".pkt" required>
+    <br>
+    <button type="submit">Convert to DSL</button>
+  </form>
+
+  <div class="error" id="error"></div>
+
+  <pre id="result">// DSL output will appear here</pre>
+
+  <script>
+    const form = document.getElementById('upload-form');
+    const fileInput = document.getElementById('file');
+    const resultBox = document.getElementById('result');
+    const errorBox = document.getElementById('error');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorBox.textContent = '';
+      resultBox.textContent = '// Processing...';
+
+      const file = fileInput.files[0];
+      if (!file) {
+        errorBox.textContent = 'Please select a file.';
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const response = await fetch('/decode', {
+          method: 'POST',
+          body: formData
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          resultBox.textContent = result.dsl;
+        } else {
+          errorBox.textContent = result.error || 'Conversion failed.';
+          resultBox.textContent = '';
+        }
+      } catch (err) {
+        errorBox.textContent = 'Network or server error: ' + err;
+        resultBox.textContent = '';
+      }
+    });
+  </script>
+</body>
+</html>
