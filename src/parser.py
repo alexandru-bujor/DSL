@@ -1,9 +1,30 @@
-from pyparsing import Group, ZeroOrMore
-from lex import W, IPV4_ADDRESS, NUMBER, LBRACE, RBRACE, Keyword, Literal, Suppress
+from pyparsing import (
+    Group,
+    ZeroOrMore,
+    Literal,
+    Keyword
+)
+# Import tokens from lexer.py
+from src.lexer import (
+    W,
+    NUMBER,
+    IPV4_ADDRESS,
+    LBRACE,
+    RBRACE
+)
 
-# DSL token definitions
-Coordinates = Group(Keyword("coordinates") + NUMBER("x") + NUMBER("y"))
-Power = Group(Keyword("power") + (Keyword("on") | Keyword("off"))("state"))
+# -------------------------------------------------
+# DSL Grammar
+# -------------------------------------------------
+
+Coordinates = Group(
+    Keyword("coordinates") + NUMBER("x") + NUMBER("y")
+)
+
+Power = Group(
+    Keyword("power") + (Keyword("on") | Keyword("off"))("state")
+)
+
 Interface = Group(
     Keyword("interface") + W("name") +
     LBRACE +
@@ -13,15 +34,20 @@ Interface = Group(
     ) +
     RBRACE
 )
+
 DeviceBody = ZeroOrMore(Coordinates | Power | Interface)
+
 Device = Group(
     Keyword("device") + W("name") +
-    (Keyword("pc") | Keyword("laptop") | Keyword("router") |
-     Keyword("switch") | Keyword("firewall") | W)("type") +
+    (
+        Keyword("pc") | Keyword("laptop") | Keyword("router") |
+        Keyword("switch") | Keyword("firewall") | W
+    )("type") +
     LBRACE +
     DeviceBody +
     RBRACE
 )
+
 Link = Group(
     Keyword("link") +
     Group(
@@ -35,9 +61,13 @@ Link = Group(
     ) +
     RBRACE
 )
+
 Network = Group(
     Keyword("network") + W("name") +
     LBRACE +
     ZeroOrMore(Device | Link) +
     RBRACE
 )
+
+# You can parse DSL text by doing, for example:
+#   result = Network.parseString(sometext, parseAll=True)

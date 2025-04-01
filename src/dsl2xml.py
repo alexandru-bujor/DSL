@@ -1,6 +1,7 @@
+import sys
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
-from grammar import Network
+from src.parser import Network
 from pyparsing import ParseResults
 
 def prettify_xml(elem):
@@ -77,3 +78,20 @@ def process_dsl_to_xml(input_file, output_file):
         f.write(xml_output)
 
     return output_file
+def main():
+    """Main function to handle DSL processing."""
+    # input_file = "../dsl/network.dsl"
+    input_file = "../dsl/network.dsl"
+    output_file = "../xml/output/final_output.xml"
+
+    print("[INFO] Starting DSL to XML conversion...")
+
+    try:
+        process_dsl_to_xml(input_file, output_file)
+        print(f"[INFO] Successfully generated XML: {output_file}")
+    except Exception as e:
+        print(f"[ERROR] Failed to process DSL file: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
