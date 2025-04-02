@@ -89,10 +89,16 @@ def main(input_xml, output_dsl):
             cable = link_elem.find("CABLE")
             if cable is None:
                 continue
+
             from_ref = cable.findtext("FROM", "")
-            from_port = cable.findtext("PORT", "")
             to_ref = cable.findtext("TO", "")
-            to_port = cable.findtext("PORT", "")
+
+            ports = cable.findall("PORT")
+            if len(ports) < 2:
+                continue  # safety check
+
+            from_port = ports[0].text or ""
+            to_port = ports[1].text or ""
 
             # Simplistic approach for link speed
             if "Gigabit" in from_port:
@@ -118,7 +124,7 @@ def main(input_xml, output_dsl):
             lines.append("        power on")
         # For simplicity, we create a single interface
         # If you want to represent all ports, you’d loop over dev["ports"].
-        lines.append("        interface eth0 {")
+        lines.append("        interface FastEthernet0 {")
         # IP is often missing in PT’s raw XML, so using a placeholder here
         lines.append("            ip 0.0.0.0")
         if dev["ports"]:

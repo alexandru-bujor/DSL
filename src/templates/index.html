@@ -68,7 +68,7 @@
       formData.append('file', file);
 
       try {
-        const response = await fetch('/decode', {
+        const response = await fetch('/convert', {
           method: 'POST',
           body: formData
         });
