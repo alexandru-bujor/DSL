@@ -1,77 +1,78 @@
 #!/usr/bin/env python3
 import sys
 import xml.etree.ElementTree as ET
+import json
 
 # Map Packet Tracer model strings to DSL device keywords
 MODEL_MAP = {
     "PC-PT": "pc",
     "Laptop-PT": "laptop",
     "2960-24TT": "switch",
-    # Add more as needed...
+    "ISR4331": "router",
+    "Server-PT": "server",
 }
 
+# Map device types to image URLs
+IMAGE_MAP = {
+    "pc": "/images/pc.png",
+    "laptop": "/images/laptop.png",
+    "switch": "/images/switch.png",
+    "router": "/images/router.png",
+    "server": "/images/server.png",
+    "unknown": "/images/unknown.png",
+}
 
 def parse_bandwidth_to_mbps(bw_str):
     """Convert Packet Tracer bandwidth strings to integer Mbps."""
     try:
         bw_val = int(bw_str)
-        # Packet Tracer often uses 100,000 for FastEthernet (100Mbps),
-        # 1,000,000 for GigabitEthernet (1000Mbps), etc.
         return bw_val // 1000
     except:
         return 0
 
-
-def main(input_xml, output_dsl):
+def generate_dsl_and_react_flow(input_xml, output_dsl):
     # Parse the XML
     tree = ET.parse(input_xml)
     root = tree.getroot()
 
-    # Dictionary to hold device data keyed by save-ref-id
     devices = {}
-    # List for link data
     links = []
+    device_id_counter = 1
+    device_map = {}
 
     network_tag = root.find("./NETWORK")
     if network_tag is None:
-        print(f"ERROR: No <NETWORK> tag found in {input_xml}")
-        return
+        print(f"ERROR: No <NETWORK> tag found in {input_xml}", file=sys.stderr)
+        sys.exit(1)
 
     devices_tag = network_tag.find("DEVICES")
     if devices_tag is None:
-        print(f"ERROR: No <DEVICES> section found in {input_xml}")
-        return
+        print(f"ERROR: No <DEVICES> section found in {input_xml}", file=sys.stderr)
+        sys.exit(1)
 
-    # 1) Collect devices
+    # Collect devices
     for dev_elem in devices_tag.findall("DEVICE"):
         engine_elem = dev_elem.find("ENGINE")
         if engine_elem is None:
             continue
 
-        # Name and Type
         dev_name = engine_elem.findtext("NAME", "Unknown")
         model_attr = engine_elem.find("TYPE").get("model", "") if engine_elem.find("TYPE") is not None else ""
         dsl_type = MODEL_MAP.get(model_attr, "unknown")
-
-        # Coordinates & Power
-        x_coord = engine_elem.findtext("./COORD_SETTINGS/X_COORD", "0")
-        y_coord = engine_elem.findtext("./COORD_SETTINGS/Y_COORD", "0")
+        x_coord = float(engine_elem.findtext("./COORD_SETTINGS/X_COORD", "0"))
+        y_coord = float(engine_elem.findtext("./COORD_SETTINGS/Y_COORD", "0"))
         power_str = engine_elem.findtext("POWER", "false")
         is_power_on = (power_str.lower() == "true")
-
-        # Save-ref-id for cross-referencing in LINK
         save_ref_id = engine_elem.findtext("SAVE_REF_ID", "")
 
-        # Gather PORT info
         ports_info = {}
         for port in dev_elem.findall(".//PORT"):
             bw_str = port.findtext("BANDWIDTH", "100000")
             bw_mbps = parse_bandwidth_to_mbps(bw_str)
-            ports_info[id(port)] = {
-                "bandwidth_mbps": bw_mbps
-            }
+            ports_info[id(port)] = {"bandwidth_mbps": bw_mbps}
 
         devices[save_ref_id] = {
+            "id": device_id_counter,
             "name": dev_name,
             "dsl_type": dsl_type,
             "x_coord": x_coord,
@@ -79,12 +80,12 @@ def main(input_xml, output_dsl):
             "power_on": is_power_on,
             "ports": ports_info,
         }
+        device_map[save_ref_id] = device_id_counter
+        device_id_counter += 1
 
-    # 2) Collect links
+    # Collect links
     links_tag = network_tag.find("LINKS")
-    if links_tag is None:
-        print("No <LINKS> found—no links to process.")
-    else:
+    if links_tag:
         for link_elem in links_tag.findall("LINK"):
             cable = link_elem.find("CABLE")
             if cable is None:
@@ -92,19 +93,13 @@ def main(input_xml, output_dsl):
 
             from_ref = cable.findtext("FROM", "")
             to_ref = cable.findtext("TO", "")
-
             ports = cable.findall("PORT")
             if len(ports) < 2:
-                continue  # safety check
+                continue
 
             from_port = ports[0].text or ""
             to_port = ports[1].text or ""
-
-            # Simplistic approach for link speed
-            if "Gigabit" in from_port:
-                link_speed = 1000
-            else:
-                link_speed = 100
+            link_speed = 1000 if "Gigabit" in from_port else 100
 
             links.append({
                 "from_ref": from_ref,
@@ -114,7 +109,7 @@ def main(input_xml, output_dsl):
                 "speed": link_speed
             })
 
-    # 3) Build DSL output as a string
+    # Build DSL output
     lines = []
     lines.append("network MyNetwork {")
     for dev in devices.values():
@@ -122,20 +117,15 @@ def main(input_xml, output_dsl):
         lines.append(f"        coordinates {dev['x_coord']} {dev['y_coord']}")
         if dev["power_on"]:
             lines.append("        power on")
-        # For simplicity, we create a single interface
-        # If you want to represent all ports, you’d loop over dev["ports"].
         lines.append("        interface FastEthernet0 {")
-        # IP is often missing in PT’s raw XML, so using a placeholder here
         lines.append("            ip 0.0.0.0")
         if dev["ports"]:
-            # Use the first port’s bandwidth for demonstration
             first_port_id = next(iter(dev["ports"]))
             bw_val = dev["ports"][first_port_id]["bandwidth_mbps"]
             lines.append(f"            bandwidth {bw_val}")
         lines.append("        }")
         lines.append("    }")
 
-    # Links
     for link in links:
         from_dev = devices.get(link["from_ref"], {}).get("name", "UNKNOWN")
         to_dev = devices.get(link["to_ref"], {}).get("name", "UNKNOWN")
@@ -144,14 +134,46 @@ def main(input_xml, output_dsl):
         lines.append("    }")
 
     lines.append("}")
-
     dsl_output = "\n".join(lines)
 
-    # 4) Write the DSL output to a .dsl file
+    # Write DSL to file
     with open(output_dsl, "w", encoding="utf-8") as f:
         f.write(dsl_output + "\n")
-    print(f"DSL saved to {output_dsl}")
 
+    # Build React Flow JSON
+    react_flow_nodes = []
+    react_flow_edges = []
+
+    for dev in devices.values():
+        node = {
+            "id": str(dev["id"]),
+            "type": "custom",
+            "data": {
+                "label": dev["name"],
+                "src": IMAGE_MAP.get(dev["dsl_type"], IMAGE_MAP["unknown"])
+            },
+            "position": {
+                "x": dev["x_coord"] * 0.1,
+                "y": dev["y_coord"] * 0.1
+            }
+        }
+        react_flow_nodes.append(node)
+
+    for i, link in enumerate(links):
+        from_id = device_map.get(link["from_ref"])
+        to_id = device_map.get(link["to_ref"])
+        if from_id and to_id:
+            edge = {
+                "id": f"e{i}",
+                "source": str(from_id),
+                "target": str(to_id),
+                "type": "straight",
+                "animated": True
+            }
+            react_flow_edges.append(edge)
+
+    # Print React Flow JSON to stdout
+    print(json.dumps({"nodes": react_flow_nodes, "edges": react_flow_edges}))
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
@@ -160,6 +182,4 @@ if __name__ == "__main__":
 
     input_xml_file = sys.argv[1]
     output_dsl_file = sys.argv[2]
-    #input_xml_file = "../convertions/test-file-1.xml"
-    #output_dsl_file = "../dsl/output1.dsl"
-    main(input_xml_file, output_dsl_file)
+    generate_dsl_and_react_flow(input_xml_file, output_dsl_file)
