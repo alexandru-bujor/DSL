@@ -53,14 +53,19 @@ def generate_dsl_and_react_flow(input_xml, output_dsl):
     # Collect devices
     for dev_elem in devices_tag.findall("DEVICE"):
         engine_elem = dev_elem.find("ENGINE")
+        workspace_elem = dev_elem.find("WORKSPACE")
         if engine_elem is None:
             continue
 
         dev_name = engine_elem.findtext("NAME", "Unknown")
+
+        if dev_name == "Power Distribution Device0":
+            continue
+
         model_attr = engine_elem.find("TYPE").get("model", "") if engine_elem.find("TYPE") is not None else ""
         dsl_type = MODEL_MAP.get(model_attr, "unknown")
-        x_coord = float(engine_elem.findtext("./COORD_SETTINGS/X_COORD", "0"))
-        y_coord = float(engine_elem.findtext("./COORD_SETTINGS/Y_COORD", "0"))
+        x_coord = float(workspace_elem.findtext("./LOGICAL/X", "0"))
+        y_coord = float(workspace_elem.findtext("./LOGICAL/Y", "0"))
         power_str = engine_elem.findtext("POWER", "false")
         is_power_on = (power_str.lower() == "true")
         save_ref_id = engine_elem.findtext("SAVE_REF_ID", "")
@@ -153,8 +158,8 @@ def generate_dsl_and_react_flow(input_xml, output_dsl):
                 "src": IMAGE_MAP.get(dev["dsl_type"], IMAGE_MAP["unknown"])
             },
             "position": {
-                "x": dev["x_coord"] * 0.1,
-                "y": dev["y_coord"] * 0.1
+                "x": dev["x_coord"],
+                "y": dev["y_coord"]
             }
         }
         react_flow_nodes.append(node)
