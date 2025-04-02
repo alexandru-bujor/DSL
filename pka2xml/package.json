@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "libzip": "^1.0.8",
+    "re2": "^1.21.4",
+    "react-native-cryptopp": "^0.3.1"
+  }
+}
