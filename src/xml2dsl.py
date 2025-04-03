@@ -2,6 +2,7 @@
 import sys
 import xml.etree.ElementTree as ET
 import json
+from ipaddress import ip_address
 
 # Map Packet Tracer model strings to DSL device keywords
 MODEL_MAP = {
@@ -71,9 +72,15 @@ def generate_dsl_and_react_flow(input_xml, output_dsl):
         save_ref_id = engine_elem.findtext("SAVE_REF_ID", "")
 
         ports_info = {}
+        ip_address = "0.0.0.0"
         for port in dev_elem.findall(".//PORT"):
             bw_str = port.findtext("BANDWIDTH", "100000")
             bw_mbps = parse_bandwidth_to_mbps(bw_str)
+            port_ip = port.findtext("IP")
+
+            if port_ip and port_ip.strip():
+                ip_address = port_ip
+
             ports_info[id(port)] = {"bandwidth_mbps": bw_mbps}
 
         devices[save_ref_id] = {
@@ -84,6 +91,7 @@ def generate_dsl_and_react_flow(input_xml, output_dsl):
             "y_coord": y_coord,
             "power_on": is_power_on,
             "ports": ports_info,
+            "ip_address": ip_address,
         }
         device_map[save_ref_id] = device_id_counter
         device_id_counter += 1
@@ -123,7 +131,7 @@ def generate_dsl_and_react_flow(input_xml, output_dsl):
         if dev["power_on"]:
             lines.append("        power on")
         lines.append("        interface FastEthernet0 {")
-        lines.append("            ip 0.0.0.0")
+        lines.append(f"            ip {dev['ip_address']}")
         if dev["ports"]:
             first_port_id = next(iter(dev["ports"]))
             bw_val = dev["ports"][first_port_id]["bandwidth_mbps"]
@@ -155,7 +163,16 @@ def generate_dsl_and_react_flow(input_xml, output_dsl):
             "type": "custom",
             "data": {
                 "label": dev["name"],
-                "src": IMAGE_MAP.get(dev["dsl_type"], IMAGE_MAP["unknown"])
+                "src": IMAGE_MAP.get(dev["dsl_type"], IMAGE_MAP["unknown"]),
+                # Add all device characteristics for the modal
+                "type": dev["dsl_type"],
+                "coordinates": f"{dev['x_coord']} {dev['y_coord']}",
+                "power_on": dev["power_on"],
+                "interface": {
+                    "name": "FastEthernet0",
+                    "ip": dev['ip_address'],
+                    "bandwidth": dev["ports"][next(iter(dev["ports"]))]["bandwidth_mbps"] if dev["ports"] else 0
+                }
             },
             "position": {
                 "x": dev["x_coord"],
