@@ -1,97 +1,139 @@
 import sys
 import xml.etree.ElementTree as ET
-from xml.dom import minidom
-from src.parser import Network
-from pyparsing import ParseResults
+from pyparsing import (
+    Word, alphanums, alphas, Suppress, Keyword, Group, Optional,
+    OneOrMore, Literal, ParseException
+)
+from pyparsing import pyparsing_common as ppc
 
-def prettify_xml(elem):
-    """Return a pretty-printed XML string for the Element."""
-    rough_string = ET.tostring(elem, encoding="unicode")
-    return minidom.parseString(rough_string).toprettyxml(indent="  ")
+# Define grammar
+ID = Word(alphanums + "_-/.")
 
-def inject_into_template(parsed_result):
-    """Inject parsed DSL data into an XML template."""
-    root = ET.Element("PACKETTRACER5")
-    ET.SubElement(root, "VERSION").text = "8.2.2.0400"
-    pixmapbank = ET.SubElement(root, "PIXMAPBANK")
-    ET.SubElement(pixmapbank, "IMAGE")
-    ET.SubElement(root, "MOVIEBANK")
-    network_elem = ET.SubElement(root, "NETWORK")
-    devices_elem = ET.SubElement(network_elem, "DEVICES")
-    links_elem = ET.SubElement(network_elem, "LINKS")
-    ET.SubElement(network_elem, "SHAPETESTS")
-    ET.SubElement(network_elem, "DESCRIPTION")
-    ET.SubElement(root, "SCENARIOSET")
-    ET.SubElement(root, "OPTIONS")
+NUMBER = ppc.fnumber
+IPADDR = Word(alphanums + "./")
 
-    network_data = parsed_result[0] if len(parsed_result) == 1 else parsed_result
+LBRACE, RBRACE = map(Suppress, "{}")
 
-    for item in network_data[2:]:
-        if not isinstance(item, ParseResults) or not item:
-            continue
+# DSL keywords
+network_kw = Keyword("network")
+device_kw = Keyword("device")
+coordinates_kw = Keyword("coordinates")
+power_kw = Keyword("power")
+interface_kw = Keyword("interface")
+ip_kw = Keyword("ip")
+bandwidth_kw = Keyword("bandwidth")
+link_kw = Keyword("link")
 
-        token = item[0]
-        if token == "device":
-            dev_elem = ET.SubElement(devices_elem, "DEVICE")
-            dev_elem.set("name", item[1])
-            dev_elem.set("type", item[2])
-            for prop in item[3:]:
-                if prop[0] == "coordinates":
-                    coord_elem = ET.SubElement(dev_elem, "COORDINATES")
-                    coord_elem.set("x", prop[1])
-                    coord_elem.set("y", prop[2])
-                elif prop[0] == "power":
-                    dev_elem.set("power", prop[1])
-                elif prop[0] == "interface":
-                    iface_elem = ET.SubElement(dev_elem, "INTERFACE")
-                    iface_elem.set("name", prop[1])
-                    for sub in prop[2:]:
-                        if sub[0] == "bandwidth":
-                            iface_elem.set("bandwidth", sub[1])
-                        elif sub[0] == "ip":
-                            iface_elem.set("ip", sub[1])
-        elif token == "link":
-            link_elem = ET.SubElement(links_elem, "LINK")
-            link_details = item[1]
-            if len(link_details) >= 7:
-                link_elem.set("from", link_details[0])
-                link_elem.set("from_port", link_details[2])
-                link_elem.set("to", link_details[4])
-                link_elem.set("to_port", link_details[6])
-            for prop in item[2:]:
-                link_elem.set(prop[0], prop[1])
+# Interface block
+InterfaceBody = Group(
+    interface_kw + ID("iface_name") + LBRACE +
+    ip_kw + IPADDR("ip") +
+    Optional(bandwidth_kw + NUMBER("bandwidth")) +
+    RBRACE
+)
 
-    return prettify_xml(root)
+# Device block
+Device = Group(
+    device_kw + ID("name") + ID("type") +
+    LBRACE +
+    coordinates_kw + NUMBER("x") + NUMBER("y") +
+    Optional(power_kw + Keyword("on"))("power") +
+    InterfaceBody("interface") +
+    RBRACE
+)
 
-def process_dsl_to_xml(input_file, output_file):
-    """Processes a DSL file and generates an XML file."""
-    with open(input_file, "r") as f:
-        dsl_data = f.read()
+# Link block
+Link = Group(
+    link_kw +
+    Group(ID("from_dev") + Suppress(".") + ID("from_port"))("from") +
+    Suppress("->") +
+    Group(ID("to_dev") + Suppress(".") + ID("to_port"))("to") +
+    LBRACE +
+    Optional(Keyword("speed") + NUMBER("speed")) +
+    RBRACE
+)
 
-    if not dsl_data.strip():
-        raise ValueError("DSL file is empty.")
+# Network block
+Network = Group(
+    network_kw + ID("name") +
+    LBRACE +
+    OneOrMore(Device)("devices") +
+    OneOrMore(Link)("links") +
+    RBRACE
+)
 
-    parsed_result = Network.parseString(dsl_data, parseAll=True)
-    xml_output = inject_into_template(parsed_result)
-
-    with open(output_file, "w") as f:
-        f.write(xml_output)
-
-    return output_file
-def main():
-    """Main function to handle DSL processing."""
-    # input_file = "../dsl/network.dsl"
-    input_file = "../dsl/network.dsl"
-    output_file = "../xml/output/final_output.xml"
-
-    print("[INFO] Starting DSL to XML conversion...")
-
+def parse_dsl(text):
     try:
-        process_dsl_to_xml(input_file, output_file)
-        print(f"[INFO] Successfully generated XML: {output_file}")
-    except Exception as e:
-        print(f"[ERROR] Failed to process DSL file: {e}")
+        return Network.parseString(text, parseAll=True)
+    except ParseException as e:
+        print(f"Parsing error: {e}")
         sys.exit(1)
 
+def build_xml(parsed):
+    root = ET.Element("NETWORK")
+
+    devices_el = ET.SubElement(root, "DEVICES")
+    save_id_counter = 1000
+
+    save_id_map = {}
+
+    for dev in parsed["devices"]:
+        device_el = ET.SubElement(devices_el, "DEVICE")
+        engine = ET.SubElement(device_el, "ENGINE")
+        workspace = ET.SubElement(device_el, "WORKSPACE")
+        logical = ET.SubElement(ET.SubElement(workspace, "LOGICAL"))
+
+        ET.SubElement(engine, "NAME").text = dev["name"]
+        ET.SubElement(engine, "TYPE", model=dev["type"])
+        ET.SubElement(engine, "POWER").text = "true" if dev.get("power") else "false"
+        ET.SubElement(engine, "SAVE_REF_ID").text = str(save_id_counter)
+
+        ET.SubElement(engine, "PORTS")  # Placeholder
+
+        ET.SubElement(logical, "X").text = str(dev["x"])
+        ET.SubElement(logical, "Y").text = str(dev["y"])
+
+        iface = dev["interface"]
+        port_el = ET.SubElement(device_el, "PORT")
+        ET.SubElement(port_el, "IP").text = iface["ip"]
+        ET.SubElement(port_el, "BANDWIDTH").text = str(int(iface.get("bandwidth", 100) * 1000))
+
+        save_id_map[dev["name"]] = str(save_id_counter)
+        save_id_counter += 1
+
+    links_el = ET.SubElement(root, "LINKS")
+
+    for link in parsed["links"]:
+        link_el = ET.SubElement(links_el, "LINK")
+        cable = ET.SubElement(link_el, "CABLE")
+
+        from_id = save_id_map.get(link["from"]["from_dev"], "0")
+        to_id = save_id_map.get(link["to"]["to_dev"], "0")
+
+        ET.SubElement(cable, "FROM").text = from_id
+        ET.SubElement(cable, "PORT").text = link["from"]["from_port"]
+        ET.SubElement(cable, "TO").text = to_id
+        ET.SubElement(cable, "PORT").text = link["to"]["to_port"]
+
+        speed = int(link.get("speed", 100))
+        ET.SubElement(cable, "TYPE").text = "eStraightThrough"
+        ET.SubElement(cable, "LENGTH").text = "42.00"
+        ET.SubElement(cable, "FUNCTIONAL").text = "true"
+
+    return ET.ElementTree(root)
+
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) != 3:
+        print("Usage: python dsl2xml.py <input.dsl> <output.xml>")
+        sys.exit(1)
+
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
+
+    with open(input_file, "r", encoding="utf-8") as f:
+        dsl_text = f.read()
+
+    parsed = parse_dsl(dsl_text)
+    tree = build_xml(parsed)
+    tree.write(output_file, encoding="utf-8", xml_declaration=True)
+    print(f"✅ XML file saved to {output_file}")

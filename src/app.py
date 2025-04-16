@@ -88,5 +88,52 @@ def convert_xml_to_dsl():
                 except PermissionError as e:
                     print(f"Warning: Could not delete {temp_file}: {e}")
 
+@app.route('/reactflow', methods=['POST'])
+def dsl_to_reactflow():
+    try:
+        # Read raw DSL text from the request body
+        dsl_text = request.get_data(as_text=True)
+
+        if not dsl_text.strip():
+            return jsonify({'error': 'No DSL content provided in request body'}), 400
+
+        # Save to temp file
+        with tempfile.NamedTemporaryFile(suffix='.dsl', delete=False, mode='w', encoding='utf-8') as temp_dsl:
+            temp_dsl.write(dsl_text)
+            temp_dsl_path = temp_dsl.name
+
+        # Run DSL to React Flow parser
+        result = subprocess.run(
+            ['python', 'dsl2reactflow.py', temp_dsl_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+
+        if result.returncode != 0:
+            return jsonify({
+                'error': 'DSL to React Flow conversion failed',
+                'stderr': result.stderr,
+                'stdout': result.stdout
+            }), 500
+
+        try:
+            react_flow_data = json.loads(result.stdout)
+        except json.JSONDecodeError as e:
+            return jsonify({
+                'error': 'Failed to parse React Flow JSON',
+                'stdout': result.stdout,
+                'json_error': str(e)
+            }), 500
+
+        return jsonify({'react_flow': react_flow_data})
+
+    except Exception as e:
+        return jsonify({
+            'error': 'Internal server error',
+            'details': str(e),
+        }), 500
+
+
 if __name__ == '__main__':
     app.run(debug=True, host='127.0.0.1', port=5000)
