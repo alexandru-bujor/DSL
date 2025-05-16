@@ -128,15 +128,15 @@ def get_snippet(id):
     return jsonify(id=s.id, title=s.title, content=s.content), 200
 
 
-# ─── Conversion Routes (/api/convert & /api/reactflow) ────────────────────────
+# ─── Conversion Routes (/api/decode & /api/compile) ────────────────────────
 
 def cleanup(path):
     try: os.unlink(path)
     except: pass
 
-@app.route('/api/convert', methods=['POST'])
+@app.route('/api/decode', methods=['POST'])
 @jwt_required()
-def convert_xml_to_dsl():
+def decode():
     if 'file' not in request.files:
         return jsonify({'error': 'No XML file uploaded'}), 400
 
@@ -149,7 +149,7 @@ def convert_xml_to_dsl():
             temp_dsl = td.name
 
         result = subprocess.run(
-            ['python','xml2dsl.py', temp_xml, temp_dsl],
+            ['python','decode.py', temp_xml, temp_dsl],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
         )
         if result.returncode != 0:
@@ -168,33 +168,32 @@ def convert_xml_to_dsl():
             if f: cleanup(f)
 
 
-@app.route('/api/reactflow', methods=['POST'])
+@app.route('/api/compile', methods=['POST'])
 @jwt_required()
-def dsl_to_reactflow():
-    dsl_text = request.get_data(as_text=True)
-    if not dsl_text.strip():
-        return jsonify({'error':'No DSL content provided'}), 400
-
-    temp_dsl = None
+def compile():
     try:
-        with tempfile.NamedTemporaryFile(suffix='.dsl', delete=False, mode='w', encoding='utf-8') as td:
-            td.write(dsl_text); temp_dsl = td.name
+        dsl_text = request.json.get("dsl")
+        if not dsl_text:
+            return jsonify(error="No DSL code provided"), 400
+
+        with tempfile.NamedTemporaryFile(suffix='.dsl', delete=False, mode='w') as tf:
+            tf.write(dsl_text)
+            dsl_path = tf.name
 
         result = subprocess.run(
-            ['python','dsl2reactflow.py', temp_dsl],
+            ['python', 'compile.py', dsl_path],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
         )
+
         if result.returncode != 0:
-            return jsonify(error='DSL→ReactFlow failed', stderr=result.stderr), 500
+            return jsonify(error="Recompilation failed", stderr=result.stderr), 500
 
         rf_json = json.loads(result.stdout)
         return jsonify(react_flow=rf_json), 200
 
     except Exception as e:
-        return jsonify(error='Internal error', details=str(e)), 500
-
-    finally:
-        if temp_dsl: cleanup(temp_dsl)
+        traceback.print_exc()
+        return jsonify(error="Internal error", details=str(e)), 500
 
 
 # ─── Run ──────────────────────────────────────────────────────────────────────

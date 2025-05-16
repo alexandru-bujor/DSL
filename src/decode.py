@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import sys
 import xml.etree.ElementTree as ET
 import json
@@ -199,7 +198,7 @@ def generate_dsl_and_react_flow(input_xml, output_dsl):
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print("Usage: python xml2dsl.py <input-xml> <output.dsl>")
+        print("Usage: python decode.py <input-xml> <output.dsl>")
         sys.exit(1)
 
     input_xml_file = sys.argv[1]
