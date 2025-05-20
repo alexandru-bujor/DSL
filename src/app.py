@@ -100,6 +100,9 @@ def me():
 def list_snippets():
     uid = get_jwt_identity()
     snips = Snippet.query.filter_by(user_id=uid).all()
+    # It's good practice to return UUIDs as strings if they are UUIDs on the client side
+    # Assuming your Snippet.id is an Integer, it's fine.
+    # If you later change Snippet.id to a string UUID, ensure it's handled here.
     return jsonify([
         {'id': s.id, 'title': s.title, 'content': s.content, 'created_at': s.created_at.isoformat()}
         for s in snips
@@ -118,14 +121,19 @@ def create_snippet():
     db.session.commit()
     return jsonify(id=s.id), 201
 
-@app.route('/api/snippets/<int:id>', methods=['GET'])
+@app.route('/api/snippets/<int:id>', methods=['DELETE'])
 @jwt_required()
-def get_snippet(id):
+def get_or_delete_snippet(id):
     uid = get_jwt_identity()
     s = Snippet.query.get_or_404(id)
-    if s.user_id != uid:
+
+    # Ensure the snippet belongs to the authenticated user
+    if str(s.user_id) != uid: # Compare as strings, as get_jwt_identity() returns string
         return jsonify(msg="Forbidden"), 403
-    return jsonify(id=s.id, title=s.title, content=s.content), 200
+
+    db.session.delete(s)
+    db.session.commit()
+    return jsonify(msg="Snippet deleted"), 200 # Or 204 No Content for successful deletion with no body
 
 
 # ─── Conversion Routes (/api/decode & /api/compile) ────────────────────────
